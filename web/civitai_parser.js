@@ -68,6 +68,13 @@ function asSamplerNode(object) {
   return { ...object.inputs };
 }
 
+function modelFileName(name) {
+  const sep_expr = /\\(\\\\)*/g;
+  name = name.replace(sep_expr, "/");
+  const parts = name.split("/");
+  return parts[parts.length - 1];
+}
+
 const AIR_KEYS = ["ckpt_airs", "lora_airs", "embedding_airs"];
 
 export const comfyMetadataProcessor = {
@@ -104,11 +111,11 @@ export const comfyMetadataProcessor = {
         const strength = node.inputs.strength_model;
         if (strength < 0.001 && strength > -0.001) continue;
 
-        if (hashes.loras) hashes.loras.push(node.lora_hash);
-        else hashes.loras = [node.lora_hash];
+        const lora_name = modelFileName(node.inputs.lora_name);
+        hashes[`lora:${lora_name}`] = node.lora_hash;
 
         additionalResources.push({
-          name: node.inputs.lora_name,
+          name: lora_name,
           type: "lora",
           strength,
           strengthClip: node.inputs.strength_clip,
@@ -117,11 +124,11 @@ export const comfyMetadataProcessor = {
       }
 
       if (node.class_type == "CheckpointLoaderSimple") {
-        models.push(node.inputs.ckpt_name);
-        if (hashes.model) hashes.model.push(node.ckpt_hash);
-        else hashes.model = [node.ckpt_hash];
+        const model_name = modelFileName(node.inputs.ckpt_name);
+        models.push(model_name);
+        if (!hashes.model) hashes.model = node.ckpt_hash;
 
-        additionalResources.push({ type: "model", name: node.inputs.ckpt_name, hash: node.ckpt_hash });
+        additionalResources.push({ type: "model", name: model_name, hash: node.ckpt_hash });
       }
 
       if (node.class_type == "UpscaleModelLoader") upscalers.push(node.inputs.model_name);
