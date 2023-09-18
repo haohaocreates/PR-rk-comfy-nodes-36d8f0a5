@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+      "target": "ESNext",
+      "module": "ESNext",
+      "outDir": "./dist",
+      "rootDir": "./web",
+      "strict": false,
+      "baseUrl": "./",
+      "paths": {
+        "/scripts/*": ["g:/github/ComfyUI/web/scripts/*"],
+        "/extensions/core/*": ["g:/github/ComfyUI/web/extensions/core/*"],
+        "/lib/*": ["g:/github/ComfyUI/web/lib/*"]
+      },
+      "typeRoots": ["g:/github/ComfyUI/web/types/*.d.ts", "./typings/*.d.ts" ]
+    },
+    "include": ["web/**/*.ts"],
+    "exclude": ["node_modules"],
+  }

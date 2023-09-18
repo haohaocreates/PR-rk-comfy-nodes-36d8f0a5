@@ -1,5 +1,6 @@
 import { comfyMetadataProcessor } from "./civitai_parser.js";
-import { ComfyWidgets } from "../../scripts/widgets.js"
+import { ComfyWidgets } from "/scripts/widgets.js";
+import { app } from "/scripts/app.js";
 
 export const CivitAIMetaChecker = {
     onExecuted(detail) {

@@ -88,9 +88,9 @@ export const comfyMetadataProcessor = {
     const vaes = [];
     const controlNets = [];
     const additionalResources = [];
-    const hashes = {};
+    const hashes: Record<string, string> = {};
 
-    for (const node of Object.values(prompt)) {
+    for (const node of Object.values(prompt) as any[]) {
       for (const [key, value] of Object.entries(node.inputs)) {
         if (Array.isArray(value)) node.inputs[key] = prompt[value[0]];
       }

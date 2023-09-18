@@ -1,8 +1,24 @@
-import { app } from "../../scripts/app.js";
-import { ComfyWidgets } from "../../scripts/widgets.js";
-import {forwardOutputValues } from "../core/utilities.js"
+import { app } from "/scripts/app.js";
+import { ComfyWidgets } from "/scripts/widgets.js";
+import {forwardOutputValues } from "/extensions/core/utilities.js"
+
+import { IWidget, INodeOutputSlot } from "g:/github/ComfyUI/web/types/litegraph";
+import { ComfyNode } from "typings/comfytypes";
+
+export interface RK_AspectRatioParameters {
+  longest_side: IWidget;
+  ratio: IWidget;
+  swap: IWidget;
+  info: IWidget;
+  dimensions: Number[];
+}
+
+export interface RK_AspectRatio extends ComfyNode {
+  parameters: RK_AspectRatioParameters;
+}
 
 export class RK_AspectRatio {
+  static category: string = "RK_Nodes/image";
   constructor() {
     this.parameters = {
       longest_side: ComfyWidgets.INT(
@@ -24,10 +40,11 @@ export class RK_AspectRatio {
         app
       ).widget,
       info: ComfyWidgets.STRING(this, "", ["", { default: "", multiline: true }], app).widget,
+      dimensions: [1024, 1024]
     };
 
-    this.addOutput("width", "INT", 1024);
-    this.addOutput("height", "INT", 1024);
+    this.addOutput("width", "INT");
+    this.addOutput("height", "INT");
 
     this.#setCallback(this.parameters.longest_side);
     this.#setCallback(this.parameters.ratio);
@@ -45,7 +62,7 @@ export class RK_AspectRatio {
 
   applyToGraph() {
     this.#computeOutputs();
-    forwardOutputValues(this, (output) => output.value);
+    forwardOutputValues(this, (output: INodeOutputSlot, index: number) => this.properties.dimensions[index]);
   }
 
   #computeOutputs() {
@@ -60,9 +77,7 @@ export class RK_AspectRatio {
       other_side = v;
     }
     
-    this.outputs[0].value = other_side; // height
-    this.outputs[1].value = longest_side; // width
-
+    this.parameters.dimensions = [other_side, longest_side];
     this.parameters.info.value = `${other_side} x ${longest_side}`;
   }
 

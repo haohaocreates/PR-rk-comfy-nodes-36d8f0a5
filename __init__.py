@@ -11,4 +11,4 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RK_CivitAIAddHashes": "CivitAI Add Model Hashes",
 }
 
-WEB_DIRECTORY = "web"
+WEB_DIRECTORY = "dist"
