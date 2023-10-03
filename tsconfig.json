@@ -9,10 +9,11 @@
       "paths": {
         "/scripts/*": ["g:/github/ComfyUI/web/scripts/*"],
         "/extensions/core/*": ["g:/github/ComfyUI/web/extensions/core/*"],
-        "/lib/*": ["g:/github/ComfyUI/web/lib/*"]
+        "/lib/*": ["g:/github/ComfyUI/web/lib/*"],
+        "/types/*": ["g:/github/ComfyUI/web/types/*" ]
       },
-      "typeRoots": ["g:/github/ComfyUI/web/types/*.d.ts", "./typings/*.d.ts" ]
     },
+    "types": ["jasmine"],
     "include": ["web/**/*.ts"],
-    "exclude": ["node_modules"],
+    "exclude": ["node_modules", "dist"],
   }

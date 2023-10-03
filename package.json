@@ -4,12 +4,15 @@
   "description": "",
   "main": "rk_nodes.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": ".\\node_modules\\.bin\\tsc && .\\node_modules\\.bin\\jasmine --config=jasmine.json"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "devDependencies": {
+    "@types/jasmine": "^4.3.6",
+    "jasmine": "^5.1.0",
     "typescript": "^5.2.2"
   }
 }

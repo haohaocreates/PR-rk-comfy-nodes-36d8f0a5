@@ -7,6 +7,7 @@ import { CivitAIMetaChecker } from "./rk_civitai_meta_checker.js";
 import type { LiteGraph as LiteGraphType } from "g:/github/ComfyUI/web/types/litegraph.js";
 import { ComfyExtension } from "g:/github/ComfyUI/web/types/comfy.js";
 import { ComfyNode } from "typings/comfytypes.js";
+import { RK_ConfigFilterNode } from "./RK_ConfigFilterNode.js";
 
 declare const LiteGraph: typeof LiteGraphType;
 
@@ -19,7 +20,9 @@ const RK_NodesExtension: ComfyExtension = {
 
 	async addCustomNodeDefs(defs, app) {},
 
-	async getCustomWidgets(app) { return undefined; },
+	async getCustomWidgets(app) {
+		return undefined;
+	},
 
 	async beforeRegisterNodeDef(nodeType, nodeData, app) {},
 
@@ -35,12 +38,24 @@ const RK_NodesExtension: ComfyExtension = {
 		);
 
 		applyInputWidgetConversionMenu(RK_AspectRatio, {}, app);
+		RK_AspectRatio.category = "RK_Nodes/image"
+
+		LiteGraph.registerNodeType(
+			"RK_ConfigFilterNode",
+			Object.assign(RK_ConfigFilterNode, {
+				title_mode: LiteGraph.NORMAL_TITLE,
+				title: "Filter Configuration",
+				collapsable: true,
+			})
+		);
+
+		RK_ConfigFilterNode.category = "RK_Nodes/utils";
 	},
 
 	loadedGraphNode(node, app) {},
 
 	nodeCreated(node, app) {
-    const comfy_node = node as ComfyNode;
+		const comfy_node = node as ComfyNode;
 		if (comfy_node.comfyClass.startsWith("RK_")) {
 			switch (comfy_node.comfyClass) {
 				case "RK_CivitAIMetaChecker":
