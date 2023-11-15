@@ -1,5 +1,5 @@
 import { app } from "/scripts/app.js";
-import { applyInputWidgetConversionMenu } from "/extensions/core/utilities.js";
+import { applyInputWidgetConversionMenu } from "./utilities.js";
 
 import { RK_AspectRatio } from "./rk_aspect_ratio.js";
 import { CivitAIMetaChecker } from "./rk_civitai_meta_checker.js";

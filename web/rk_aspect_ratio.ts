@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
-import { forwardOutputValues } from "/extensions/core/utilities.js";
+import { forwardOutputValues } from "./utilities.js";
 
 import { IWidget, INodeOutputSlot } from "/types/litegraph";
 import { ComfyNode } from "typings/comfytypes";
