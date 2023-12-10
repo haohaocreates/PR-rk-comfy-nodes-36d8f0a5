@@ -1,4 +1,8 @@
 import { ComfyApp, app } from "/scripts/app.js";
+import { ComfyWidgets } from "/scripts/widgets.js";
+import type { LiteGraph as LiteGraphType, Vector2 } from "/types/litegraph.js";
+
+declare const LiteGraph: typeof LiteGraphType;
 
 const VALID_TYPES = ["STRING", "combo", "number", "BOOLEAN"];
 
@@ -98,168 +102,169 @@ export function getWidgetType(config) {
 
 
 /** Forward values from the `node`'s outputs to all linked input widgets.
- * 
+ *
  * @param {LGraphNode} node The source node where we want to forward the output values to the
  *        linked input widgets.
  * @param {Function} valueForOutput Function to determine the value for the given `node`'s
  *        output entry
  */
 export function forwardOutputValues(node, valueForOutput) {
-    function getValueReceivers(node, output) {
-      var receivers = [];
-      for (const link of output.links || []) {
-        const link_info = app.graph.links[link];
-        const receiver = node.graph.getNodeById(link_info.target_id);
-        if (receiver.type == "Reroute") {
-          receivers = receivers.concat(getValueReceivers(receiver, receiver.outputs[0] || {}));
-        } else {
-          receivers.push({ receiver: receiver, input: receiver.inputs[link_info.target_slot] });
-        }
-      }
-      return receivers;
-    }
-  
-    for (const output of node.outputs) {
-      const receivers = getValueReceivers(node, output);
-      for (const receiver of receivers) {
-        const widget_name = receiver.input.widget.name;
-        const widget = widget_name ? receiver.receiver.widgets.find((w) => w.name == widget_name) : null;
-        if (widget) {
-          widget.value = valueForOutput(output, output.slot_index);
-          if (widget.callback) {
-            widget.callback(widget.value, app.canvas, receiver.receiver, app.canvas.graph_mouse, {});
-          }
-        }
-      }
-    }
-  }
-  
-  /** Add context menu entries for input widgets of a node which a user can convert to inputs and back to widgets.
-   * 
-   * @param {LGraphNode} nodeType The node class that we want to extend with the menu entries.
-   * @param {ComfyObjectInfo} nodeData Construction data for the node
-   * @param {ComfyApp} app The application object
-   */
-  export async function applyInputWidgetConversionMenu(nodeType, nodeData, app) {
-    const origGetExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
-    nodeType.prototype.getExtraMenuOptions = function (_, options) {
-      const r = origGetExtraMenuOptions ? origGetExtraMenuOptions.apply(this, arguments) : undefined;
-  
-      if (this.widgets) {
-        let toInput = [];
-        let toWidget = [];
-        for (const w of this.widgets) {
-          if (w.options?.forceInput) {
-            continue;
-          }
-          if (w.type === CONVERTED_TYPE) {
-            toWidget.push({
-              content: `Convert ${w.name} to widget`,
-              callback: () => convertToWidget(this, w),
-            });
-          } else {
-            const config = nodeData?.input?.required[w.name] ||
-              nodeData?.input?.optional?.[w.name] || [w.type, w.options || {}];
-            if (isConvertableWidget(w, config)) {
-              toInput.push({
-                content: `Convert ${w.name} to input`,
-                callback: () => convertToInput(this, w, config),
-              });
-            }
-          }
-        }
-        if (toInput.length) {
-          options.push(...toInput, null);
-        }
-  
-        if (toWidget.length) {
-          options.push(...toWidget, null);
-        }
-      }
-  
-      return r;
-    };
-  
-    const origOnNodeCreated = nodeType.prototype.onNodeCreated;
-    nodeType.prototype.onNodeCreated = function () {
-      const r = origOnNodeCreated ? origOnNodeCreated.apply(this) : undefined;
-      if (this.widgets) {
-        for (const w of this.widgets) {
-					if (w?.options?.forceInput || w?.options?.defaultInput) {
-            const config = nodeData?.input?.required[w.name] ||
-              nodeData?.input?.optional?.[w.name] || [w.type, w.options || {}];
-            convertToInput(this, w, config);
-          }
-        }
-      }
-      return r;
-    };
-  
-    // On initial configure of nodes hide all converted widgets
-    const origOnConfigure = nodeType.prototype.onConfigure;
-    nodeType.prototype.onConfigure = function () {
-      const r = origOnConfigure ? origOnConfigure.apply(this, arguments) : undefined;
-  
-      if (this.inputs) {
-        for (const input of this.inputs) {
-          if (input.widget && !input.widget.config[1]?.forceInput) {
-            const w = this.widgets.find((w) => w.name === input.widget.name);
-            if (w) {
-              hideWidget(this, w);
-            } else {
-              convertToWidget(this, input);
-            }
-          }
-        }
-      }
-  
-      return r;
-    };
-  
-    function isNodeAtPos(pos) {
-      for (const n of app.graph._nodes) {
-        if (n.pos[0] === pos[0] && n.pos[1] === pos[1]) {
-          return true;
-        }
-      }
-      return false;
-    }
-  
-    // Double click a widget input to automatically attach a primitive
-    const origOnInputDblClick = nodeType.prototype.onInputDblClick;
-    const ignoreDblClick = Symbol();
-    nodeType.prototype.onInputDblClick = function (slot) {
-      const r = origOnInputDblClick ? origOnInputDblClick.apply(this, arguments) : undefined;
-  
-      const input = this.inputs[slot];
-      if (!input.widget || !input[ignoreDblClick]) {
-        // Not a widget input or already handled input
-        if (!(input.type in ComfyWidgets) && !(input.widget.config?.[0] instanceof Array)) {
-          return r; //also Not a ComfyWidgets input or combo (do nothing)
-        }
-      }
-  
-      // Create a primitive node
-      const node = LiteGraph.createNode("PrimitiveNode");
-      app.graph.add(node);
-  
-      // Calculate a position that wont directly overlap another node
-      const pos = [this.pos[0] - node.size[0] - 30, this.pos[1]];
-      while (isNodeAtPos(pos)) {
-        pos[1] += LiteGraph.NODE_TITLE_HEIGHT;
-      }
-  
-      node.pos = pos;
-      node.connect(0, this, slot);
-      node.title = input.name;
-  
-      // Prevent adding duplicates due to triple clicking
-      input[ignoreDblClick] = true;
-      setTimeout(() => {
-        delete input[ignoreDblClick];
-      }, 300);
-  
-      return r;
-    };
-  }
-  
+	function getValueReceivers(node, output) {
+		var receivers = [];
+		for (const link of output.links || []) {
+			const link_info = app.graph.links[link];
+			const receiver = node.graph.getNodeById(link_info.target_id);
+			if (receiver.type == "Reroute") {
+				receivers = receivers.concat(getValueReceivers(receiver, receiver.outputs[0] || {}));
+			} else {
+				if (receiver.inputs) {
+					receivers.push({ receiver: receiver, input: receiver.inputs[link_info.target_slot] });
+				}
+			}
+		}
+		return receivers;
+	}
+
+	for (const output of node.outputs) {
+		const receivers = getValueReceivers(node, output);
+		for (const receiver of receivers) {
+			const widget_name = receiver.input.widget.name;
+			const widget = widget_name ? receiver.receiver.widgets.find((w) => w.name == widget_name) : null;
+			if (widget) {
+				widget.value = valueForOutput(output, output.slot_index);
+				if (widget.callback) {
+					widget.callback(widget.value, app.canvas, receiver.receiver, app.canvas.graph_mouse, {});
+				}
+			}
+		}
+	}
+}
+
+/** Add context menu entries for input widgets of a node which a user can convert to inputs and back to widgets.
+ *
+ * @param {LGraphNode} nodeType The node class that we want to extend with the menu entries.
+ * @param {ComfyObjectInfo} nodeData Construction data for the node
+ * @param {ComfyApp} app The application object
+ */
+export async function applyInputWidgetConversionMenu(nodeType, nodeData, app) {
+	const origGetExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
+	nodeType.prototype.getExtraMenuOptions = function (_, options) {
+		const r = origGetExtraMenuOptions ? origGetExtraMenuOptions.apply(this, arguments) : undefined;
+
+		if (this.widgets) {
+			let toInput = [];
+			let toWidget = [];
+			for (const w of this.widgets) {
+				if (w.options?.forceInput) {
+					continue;
+				}
+				if (w.type === CONVERTED_TYPE) {
+					toWidget.push({
+						content: `Convert ${w.name} to widget`,
+						callback: () => convertToWidget(this, w),
+					});
+				} else {
+					const config = nodeData?.input?.required[w.name] ||
+						nodeData?.input?.optional?.[w.name] || [w.type, w.options || {}];
+					if (isConvertableWidget(w, config)) {
+						toInput.push({
+							content: `Convert ${w.name} to input`,
+							callback: () => convertToInput(this, w, config),
+						});
+					}
+				}
+			}
+			if (toInput.length) {
+				options.push(...toInput, null);
+			}
+
+			if (toWidget.length) {
+				options.push(...toWidget, null);
+			}
+		}
+
+		return r;
+	};
+
+	const origOnNodeCreated = nodeType.prototype.onNodeCreated;
+	nodeType.prototype.onNodeCreated = function () {
+				const r = origOnNodeCreated ? origOnNodeCreated.apply(this) : undefined;
+		if (this.widgets) {
+			for (const w of this.widgets) {
+				if (w?.options?.forceInput || w?.options?.defaultInput) {
+					const config = nodeData?.input?.required[w.name] ||
+						nodeData?.input?.optional?.[w.name] || [w.type, w.options || {}];
+					convertToInput(this, w, config);
+				}
+			}
+		}
+				return r;
+	};
+
+	// On initial configure of nodes hide all converted widgets
+	const origOnConfigure = nodeType.prototype.onConfigure;
+	nodeType.prototype.onConfigure = function () {
+		const r = origOnConfigure ? origOnConfigure.apply(this, arguments) : undefined;
+
+		if (this.inputs) {
+			for (const input of this.inputs) {
+				if (input.widget && !input.widget.config[1]?.forceInput) {
+					const w = this.widgets.find((w) => w.name === input.widget.name);
+					if (w) {
+						hideWidget(this, w);
+					} else {
+						convertToWidget(this, input);
+					}
+				}
+			}
+		}
+
+		return r;
+	};
+
+	function isNodeAtPos(pos) {
+		for (const n of app.graph._nodes) {
+			if (n.pos[0] === pos[0] && n.pos[1] === pos[1]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Double click a widget input to automatically attach a primitive
+	const origOnInputDblClick = nodeType.prototype.onInputDblClick;
+	const ignoreDblClick = Symbol();
+	nodeType.prototype.onInputDblClick = function (slot) {
+		const r = origOnInputDblClick ? origOnInputDblClick.apply(this, arguments) : undefined;
+
+		const input = this.inputs[slot];
+		if (!input.widget || !input[ignoreDblClick]) {
+			// Not a widget input or already handled input
+			if (!(input.type in ComfyWidgets) && !(input.widget.config?.[0] instanceof Array)) {
+				return r; //also Not a ComfyWidgets input or combo (do nothing)
+			}
+		}
+
+		// Create a primitive node
+		const node = LiteGraph.createNode("PrimitiveNode");
+		app.graph.add(node);
+
+		// Calculate a position that wont directly overlap another node
+		const pos = [this.pos[0] - node.size[0] - 30, this.pos[1]] as Vector2;
+		while (isNodeAtPos(pos)) {
+			pos[1] += LiteGraph.NODE_TITLE_HEIGHT;
+		}
+
+		node.pos = pos;
+		node.connect(0, this, slot);
+		node.title = input.name;
+
+		// Prevent adding duplicates due to triple clicking
+		input[ignoreDblClick] = true;
+		setTimeout(() => {
+			delete input[ignoreDblClick];
+		}, 300);
+
+		return r;
+	};
+}
