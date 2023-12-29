@@ -17,72 +17,14 @@ import {
 } from "/types/litegraph";
 import { forwardOutputValues } from "./utilities.js";
 import { ComboSpec, NumberSpec, isNumberTypeId } from "./RK_NodeTracer.js";
+import { RK_ForwardWidget } from "./RK_ForwardWidget.js";
+import { RK_ControlWidget } from "./RK_ControlWidget.js";
 
 declare const LiteGraph: typeof LiteGraphType;
 
-type IAccess<T = string | number> = { type(): string; get(): T; set(v: T): void; options(): NumberSpec | ComboSpec };
-
-interface RK_ControlWidget<T = string | number> extends IWidget<T, any> {
-	afterQueue(): void;
-}
-
-class RK_ControlWidget<T = string | number> implements RK_ControlWidget<T> {
-	widget: IWidget<string, any>;
-	access: IAccess;
-
-	constructor(parent: ComfyNode, access: IAccess) {
-		this.widget = ComfyWidgets.COMBO(
-			parent,
-			"control",
-			[["constant", "random", "increment", "decrement"], { default: "random" }],
-			app
-		).widget;
-
-		this.access = access;
-	}
-
-	afterQueued(): void {
-		function evaluate(current: number, spec: NumberSpec, control: string): number {
-			const range = (spec.max - spec.min + 1) / spec.step;
-			var next = current;
-
-			switch (control) {
-				case "constant":
-					break;
-				case "random":
-					next = spec.min + Math.floor(Math.random() * range) * spec.step;
-					break;
-				case "increment":
-					next = current + spec.step;
-					if (next > spec.max) next = spec.min;
-					break;
-				case "decrement":
-					next = current - spec.step;
-					if (next < spec.min) next = spec.max;
-					break;
-			}
-			return next;
-		}
-		const control = this.widget.value;
-		const options = this.access.options();
-		if ("min" in options) {
-			this.access.set(evaluate(this.access.get() as number, options, control));
-		} else if ("values" in options) {
-			const values = options.values;
-			const current_index = values.indexOf(this.access.get() as string);
-			const index_count = values.length - 1;
-			const index = evaluate(
-				current_index,
-				{ min: 0, max: index_count, default: current_index, step: 1, precision: 0 },
-				control
-			);
-			this.access.set(values[index]);
-		}
-	}
-}
 export interface RK_QueryCivitAI_ModelInfo extends ComfyNode {
 	info: IWidget<string, any>;
-	controls: { control: RK_ControlWidget<string> };
+	control: RK_ControlWidget<string>;
 }
 
 type CivitAI_Hashes = {
@@ -147,27 +89,23 @@ type CivitAI_ModelInfo = {
 export class RK_QueryCivitAI_ModelInfo {
 	static category: string;
 
-	static IS_PROXY = Symbol();
-
-	widget_copy: any;
+	widget_copy: RK_ForwardWidget;
 	get_config_symbol: Symbol = null;
 	get_config: Function = null;
 
 	constructor() {
 		this.info = ComfyWidgets.STRING(this, "", ["", { default: "", multiline: true }], app).widget;
 		this.widget_copy = null;
-		this.controls = {
-			control: new RK_ControlWidget(this, {
-				type: () => "COMBO",
-				get: () => this.widget_copy.value as string,
-				set: (v: string): void => {
-					this.widget_copy.value = v;
-				},
-				options: () => {
-					return { values: this.get_config()[0] as string[], default: "" };
-				},
-			}),
-		};
+		this.control = new RK_ControlWidget(this, {
+			type: () => "COMBO",
+			get: () => this.widget_copy.value as string,
+			set: (v: string): void => {
+				this.widget_copy.value = v;
+			},
+			options: () => {
+				return { values: this.get_config()[0] as string[], default: "" };
+			},
+		});
 
 		this.addOutput("connect model", "*");
 		this.serialize_widgets = true;
@@ -238,29 +176,7 @@ export class RK_QueryCivitAI_ModelInfo {
 			if (widget_name && target_node.widgets) {
 				const target_widget = target_node.widgets.find((w) => w.name == widget_name) as ComfyConvertedWidget;
 				if (target_widget) {
-					class ForwardWidget implements IWidget {
-						name: string;
-						type: widgetTypes;
-						options?: any;
-						_value: any;
-						_action: (v: any) => void;
-
-						constructor(name: string, value: any, action: (v: any) => void) {
-							this.name = name;
-							this._value = value;
-							this._action = action;
-						}
-
-						set value(value: any) {
-							this._value = value;
-							this._action(this._value);
-						}
-
-						get value(): any {
-							return this._value;
-						}
-					}
-					var widget_copy = new ForwardWidget(widget_name, target_widget.value, (v: any) => {
+					var widget_copy = new RK_ForwardWidget(widget_name, target_widget.value, (v: any) => {
 						forwardOutputValues(this, () => v);
 						this.queryModelInfo(v);
 					});
@@ -276,7 +192,7 @@ export class RK_QueryCivitAI_ModelInfo {
 					if (widget_copy.type === "combo") widget_copy.options.values = () => this.get_config?.()?.[0];
 
 					this.addCustomWidget(widget_copy);
-					this.addCustomWidget(this.controls.control);
+					this.addCustomWidget(this.control);
 
 					this.widget_copy = widget_copy;
 					this.outputs[0].type = widget_copy.type;

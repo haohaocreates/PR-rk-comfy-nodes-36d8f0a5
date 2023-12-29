@@ -1,6 +1,6 @@
 import { ComfyApp, app } from "/scripts/app.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
-import type { LiteGraph as LiteGraphType, Vector2 } from "/types/litegraph.js";
+import type { INodeOutputSlot, LiteGraph as LiteGraphType, Vector2 } from "/types/litegraph.js";
 
 declare const LiteGraph: typeof LiteGraphType;
 
@@ -9,7 +9,6 @@ const VALID_TYPES = ["STRING", "combo", "number", "BOOLEAN"];
 function isConvertableWidget(widget, config) {
 	return (VALID_TYPES.includes(widget.type) || VALID_TYPES.includes(config[0])) && !widget.options?.forceInput;
 }
-
 
 const CONVERTED_TYPE = "converted-widget";
 
@@ -100,7 +99,6 @@ export function getWidgetType(config) {
 	return { type, linkType };
 }
 
-
 /** Forward values from the `node`'s outputs to all linked input widgets.
  *
  * @param {LGraphNode} node The source node where we want to forward the output values to the
@@ -108,7 +106,7 @@ export function getWidgetType(config) {
  * @param {Function} valueForOutput Function to determine the value for the given `node`'s
  *        output entry
  */
-export function forwardOutputValues(node, valueForOutput) {
+export function forwardOutputValues(node, valueForOutput: (output: INodeOutputSlot, index: number) => any) {
 	function getValueReceivers(node, output) {
 		var receivers = [];
 		for (const link of output.links || []) {
@@ -188,7 +186,7 @@ export async function applyInputWidgetConversionMenu(nodeType, nodeData, app) {
 
 	const origOnNodeCreated = nodeType.prototype.onNodeCreated;
 	nodeType.prototype.onNodeCreated = function () {
-				const r = origOnNodeCreated ? origOnNodeCreated.apply(this) : undefined;
+		const r = origOnNodeCreated ? origOnNodeCreated.apply(this) : undefined;
 		if (this.widgets) {
 			for (const w of this.widgets) {
 				if (w?.options?.forceInput || w?.options?.defaultInput) {
@@ -198,7 +196,7 @@ export async function applyInputWidgetConversionMenu(nodeType, nodeData, app) {
 				}
 			}
 		}
-				return r;
+		return r;
 	};
 
 	// On initial configure of nodes hide all converted widgets

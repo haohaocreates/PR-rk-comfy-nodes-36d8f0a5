@@ -23,9 +23,14 @@ import {
 	RK_NodeTracer,
 	isNumberTypeId,
 	isTypeId,
+	convertToConfig,
+	ComfyTracedNode,
+	convertToTransparent,
+	isTransparentNode,
+	convertToComfyType
 } from "./RK_NodeTracer.js";
 import { app } from "/scripts/app.js";
-import { forwardOutputValues } from "/extensions/core/utilities.js";
+import { forwardOutputValues } from "./utilities.js";
 
 import { INodeOutputSlot, IWidget, LLink, LiteGraph as LiteGraphType } from "/types/litegraph";
 import { ComfyNode, ComfyNodeInputSlot, ComfyWidget } from "typings/comfytypes";
@@ -33,13 +38,6 @@ import { ComfyNode, ComfyNodeInputSlot, ComfyWidget } from "typings/comfytypes";
 declare const LiteGraph: typeof LiteGraphType;
 
 export interface RK_ConfigFilterNode extends ComfyNode {}
-
-type ComfyTracedNode = { node: ComfyNode; config_slot?: number };
-type ComfyNodeTracer = (node: ComfyNode) => Generator<ComfyTracedNode, void, unknown>;
-
-function isTransparentNode(node: ComfyNode): boolean {
-	return node instanceof RK_ConfigFilterNode || (node.constructor as any).type === "Reroute";
-}
 
 /**
  * @brief: this class glues the anonymous ComfyUI world to my TypeScripted extension.
@@ -349,51 +347,6 @@ export class RK_ConfigFilterNode {
 	}
 }
 
-function convertToTransparent(node: ComfyTracedNode, nextNode: ComfyNodeTracer): ITransparent {
-	class Transparent implements ITransparent {
-		traced: ComfyTracedNode;
-		constructor(traced: ComfyTracedNode) {
-			this.traced = traced;
-		}
-
-		isTransparent() {
-			return isTransparentNode(this.traced.node);
-		}
-
-		getConfiguration() {
-			if (this.traced.config_slot === undefined) return null;
-
-			try {
-				return convertToConfig(this.traced.node.inputs[this.traced.config_slot].widget);
-			} catch (error) {
-				return null;
-			}
-		}
-
-		*follow() {
-			for (const next of nextNode(this.traced.node)) {
-				yield convertToTransparent(next, nextNode);
-			}
-		}
-	}
-
-	return new Transparent(node);
-}
-
-function convertToConfig(widget: ComfyWidget): Configuration {
-	const config = widget?.config || [];
-	if (config.length) {
-		if (config[0] instanceof Array) {
-			return { type: "COMBO", spec: { values: config[0], default: config[0][0] } };
-		} else {
-			const type = config[0].toUpperCase();
-			if (isNumberTypeId(type)) return { type: type, spec: config[1] as NumberSpec };
-			if (type === "COMBO") return { type: type, spec: { default: "", values: config[1].values } };
-		}
-	}
-	return null;
-}
-
 function convertToComfyWidgetSpec(config: Configuration) {
 	switch (config.type) {
 		case "INT":
@@ -402,16 +355,5 @@ function convertToComfyWidgetSpec(config: Configuration) {
 
 		case "COMBO":
 			return [config.spec.values];
-	}
-}
-
-function convertToComfyType(config: Configuration): string {
-	switch (config.type) {
-		case "INT":
-		case "FLOAT":
-			return config.type;
-
-		case "COMBO":
-			return config.spec.values.join(",");
 	}
 }
