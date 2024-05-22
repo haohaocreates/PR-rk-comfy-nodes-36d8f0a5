@@ -1,0 +1,14 @@
+[project]
+name = "rk-comfy-nodes"
+description = "Nodes: RK_CivitAIMetaChecker, RK_CivitAIAddHashes."
+version = "1.0.0"
+license = "LICENSE"
+
+[project.urls]
+Repository = "https://github.com/rklaffehn/rk-comfy-nodes"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "rk-comfy-nodes"
+Icon = ""
